@@ -51,6 +51,15 @@ typedef enum
     MENU_MUTABLE = 1, // Menu is dynamically populated, consider it mutable
 } consoleMenuMode_e;
 
+typedef enum
+{
+    LOGGING_LEVEL_DISABLED = -1,
+    LOGGING_LEVEL_0 = 0, 
+    LOGGING_LEVEL_1 = 1, 
+    LOGGING_LEVEL_2 = 2, 
+    LOGGING_LEVEL_3 = 3, 
+} loggingLevel_e;
+
 #define DBL_LINE_CHAR               "═"
 #define SGL_LINE_CHAR               "─"
 
@@ -59,8 +68,8 @@ typedef enum
 #define NO_FUNCTION_POINTER         (0) // NULL
 #define NO_ARGS                     (0) // NULL
 #define NO_SIZE                     (0)
-#define MAX_MENU_NAME_LENGTH        (20)
-#define MAX_MENU_DESCRIPTION_LENGTH (48)
+#define MAX_MENU_NAME_LENGTH        (40)
+#define MAX_MENU_DESCRIPTION_LENGTH (40)
 #define CONSOLE_WIDTH               (80)
 #define STRING_BUFFER_SIZE          (100)
 #define HEADER_TITLE_EXTRAS_WIDTH   (6) // "=[  ]=" = 6 characters
@@ -71,6 +80,7 @@ typedef enum
 #define MENU_SIZE(x)                sizeof(x)/sizeof(consoleMenuItem_t)
 #define SELECTION_SIZE(x)           sizeof(x)/sizeof(consoleSelection_t)
 #define TOTAL_PAGES(x)              ((x/(PAGE_LENGTH)) + (x % PAGE_LENGTH != 0))
+#define IGNORE_UNUSED()             (void)(argc);(void)(argv);
 
 #define _STR(x) #x
 #define STR(x) _STR(x)
@@ -115,6 +125,8 @@ typedef struct consoleSettings
     unsigned int        numSplashLines;
     // Pointer to the main menu
     consoleMenu_t       *mainMenuPointer;
+    // Logging level
+    loggingLevel_e      loggingLevel;
 } consoleSettings_t;
 
 void Console_Init(consoleSettings_t *settings);
@@ -126,12 +138,18 @@ char Console_CheckForKey(void);
 unsigned int Console_PromptForInt(const char *prompt);
 void Console_TraverseMenus(consoleMenu_t *menu);
 char Console_PrintOptionsAndGetResponse(const consoleSelection_t selections[], unsigned int numSelections, unsigned int numMenuSelections);
-void Console_Print(const char *format, ...);
-void Console_PrintNoEol(const char *format, ...);
-void Console_PrintNewLine(void);
-void Console_PrintHeader(char *headerString);
-void Console_PrintDivider(void);
+void Console_Print(loggingLevel_e loggingLevel, const char *format, ...);
+void Console_PrintNoEol(loggingLevel_e loggingLevel, const char *format, ...);
+void Console_PrintNewLine(loggingLevel_e loggingLevel);
+void Console_PrintHeader(loggingLevel_e loggingLevel, char *headerString);
+void Console_PrintDivider(loggingLevel_e loggingLevel);
 void Console_PrintMenu(consoleMenu_t *menu);
+
+// Fundamental functions wrapped around the logging level
+char Console_GetCharInternal(loggingLevel_e loggingLevel);
+void Console_PutCharInternal(loggingLevel_e loggingLevel, char c);
+void Console_PutStringInternal(loggingLevel_e loggingLevel, char * string);
+
 
 // Platform-specific functions that must be implemented
 extern char Console_GetChar(void);
