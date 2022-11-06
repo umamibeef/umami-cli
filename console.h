@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Michel Kakulphimp
+ * Copyright (c) 2022 Michel Kakulphimp
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,13 +43,22 @@ typedef enum
 {
     ERROR = -1,
     SUCCESS =   0,
-} functionResult_e;
+} FunctionResult_e;
 
 typedef enum
 {
     MENU_DEFAULT = 0, // Default menu behavior, immutable definition
     MENU_MUTABLE = 1, // Menu is dynamically populated, consider it mutable
-} consoleMenuMode_e;
+} ConsoleMenuMode_e;
+
+typedef enum
+{
+    LOGGING_LEVEL_DISABLED = -1,
+    LOGGING_LEVEL_0 = 0, 
+    LOGGING_LEVEL_1 = 1, 
+    LOGGING_LEVEL_2 = 2, 
+    LOGGING_LEVEL_3 = 3, 
+} LoggingLevel_e;
 
 #define DBL_LINE_CHAR               "═"
 #define SGL_LINE_CHAR               "─"
@@ -59,79 +68,88 @@ typedef enum
 #define NO_FUNCTION_POINTER         (0) // NULL
 #define NO_ARGS                     (0) // NULL
 #define NO_SIZE                     (0)
-#define MAX_MENU_NAME_LENGTH        (20)
-#define MAX_MENU_DESCRIPTION_LENGTH (48)
-#define CONSOLE_WIDTH               (80)
+#define MAX_MENU_NAME_LENGTH        (40)
+#define MAX_MENU_DESCRIPTION_LENGTH (40)
+#define CONSOLE_WIDTH               (120)
 #define STRING_BUFFER_SIZE          (100)
 #define HEADER_TITLE_EXTRAS_WIDTH   (6) // "=[  ]=" = 6 characters
 #define MAX_HEADER_TITLE_WIDTH      (CONSOLE_WIDTH - HEADER_TITLE_EXTRAS_WIDTH) 
 #define PAGE_LENGTH                 (10) // Maximum length of a page (0-9)
 #define FIRST_PAGE                  (0) // Pages are zero indexed
 
-#define MENU_SIZE(x)                sizeof(x)/sizeof(consoleMenuItem_t)
-#define SELECTION_SIZE(x)           sizeof(x)/sizeof(consoleSelection_t)
+#define MENU_SIZE(x)                sizeof(x)/sizeof(ConsoleMenuItem_t)
+#define SELECTION_SIZE(x)           sizeof(x)/sizeof(ConsoleSelection_t)
 #define TOTAL_PAGES(x)              ((x/(PAGE_LENGTH)) + (x % PAGE_LENGTH != 0))
+#define IGNORE_UNUSED()             (void)(argc);(void)(argv);
 
 #define _STR(x) #x
 #define STR(x) _STR(x)
 
 // User should define a splash screen as an as array of const pointer to const char.
-typedef const char *const splash_t[];
+typedef const char *const Splash_t[];
 
-typedef struct consoleMenuId
+typedef struct ConsoleMenuId
 {
     char                name[MAX_MENU_NAME_LENGTH];
     char                description[MAX_MENU_DESCRIPTION_LENGTH];
-} consoleMenuId_t;
+} ConsoleMenuId_t;
 
-typedef struct consoleMenuItem
+typedef struct ConsoleMenuItem
 {
-    consoleMenuId_t     id;
-    struct consoleMenu  *subMenu;
-    functionResult_e    (*functionPointer)(int argc, char *argv[]);
-} consoleMenuItem_t;
+    ConsoleMenuId_t     id;
+    struct ConsoleMenu  *sub_menu;
+    FunctionResult_e    (*function_pointer)(int argc, char *argv[]);
+} ConsoleMenuItem_t;
 
-typedef struct consoleMenu
+typedef struct ConsoleMenu
 {
-    consoleMenuId_t     id;
-    consoleMenuItem_t   *menuItems;
-    struct consoleMenu  *topMenu;
-    unsigned int        menuLength;
-    unsigned int        currentPage;
-    consoleMenuMode_e   mode;
+    ConsoleMenuId_t     id;
+    ConsoleMenuItem_t   *menu_items;
+    struct ConsoleMenu  *top_menu;
+    unsigned int        menu_length;
+    unsigned int        current_page;
+    ConsoleMenuMode_e   mode;
     void                (*updater)(void);
-} consoleMenu_t;
+} ConsoleMenu_t;
 
-typedef struct consoleSelection
+typedef struct ConsoleSelection
 {
     char                key;
     const char          *description;
-} consoleSelection_t;
+} ConsoleSelection_t;
 
-typedef struct consoleSettings
+typedef struct ConsoleSettings
 {
     // Splash screen settings
-    splash_t            *splashScreenPointer;
-    unsigned int        numSplashLines;
+    Splash_t            *splash_screen_pointer;
+    unsigned int        num_splash_lines;
     // Pointer to the main menu
-    consoleMenu_t       *mainMenuPointer;
-} consoleSettings_t;
+    ConsoleMenu_t       *main_menu_pointer;
+    // Logging level
+    LoggingLevel_e      logging_level;
+} ConsoleSettings_t;
 
-void Console_Init(consoleSettings_t *settings);
+void Console_Init(ConsoleSettings_t *settings);
 void Console_Main(void);
 
 void Console_PromptForAnyKeyBlocking(void);
 char Console_CheckForKeyBlocking(void);
 char Console_CheckForKey(void);
 unsigned int Console_PromptForInt(const char *prompt);
-void Console_TraverseMenus(consoleMenu_t *menu);
-char Console_PrintOptionsAndGetResponse(const consoleSelection_t selections[], unsigned int numSelections, unsigned int numMenuSelections);
-void Console_Print(const char *format, ...);
-void Console_PrintNoEol(const char *format, ...);
-void Console_PrintNewLine(void);
-void Console_PrintHeader(char *headerString);
-void Console_PrintDivider(void);
-void Console_PrintMenu(consoleMenu_t *menu);
+void Console_TraverseMenus(ConsoleMenu_t *menu);
+char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections);
+void Console_Print(LoggingLevel_e logging_level, const char *format, ...);
+void Console_PrintNoEol(LoggingLevel_e logging_level, const char *format, ...);
+void Console_PrintNewLine(LoggingLevel_e logging_level);
+void Console_PrintHeader(LoggingLevel_e logging_level, char *header_string);
+void Console_PrintDivider(LoggingLevel_e logging_level);
+void Console_PrintMenu(ConsoleMenu_t *menu);
+
+// Fundamental functions wrapped around the logging level
+char Console_GetCharInternal(LoggingLevel_e logging_level);
+void Console_PutCharInternal(LoggingLevel_e logging_level, char c);
+void Console_PutStringInternal(LoggingLevel_e logging_level, char * string);
+
 
 // Platform-specific functions that must be implemented
 extern char Console_GetChar(void);
