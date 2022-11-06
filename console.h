@@ -60,6 +60,15 @@ typedef enum
     LOGGING_LEVEL_3 = 3, 
 } LoggingLevel_e;
 
+typedef enum
+{
+    LOGGING_LEVEL_DISABLED = -1,
+    LOGGING_LEVEL_0 = 0, 
+    LOGGING_LEVEL_1 = 1, 
+    LOGGING_LEVEL_2 = 2, 
+    LOGGING_LEVEL_3 = 3, 
+} loggingLevel_e;
+
 #define DBL_LINE_CHAR               "═"
 #define SGL_LINE_CHAR               "─"
 
@@ -136,6 +145,7 @@ void Console_PromptForAnyKeyBlocking(void);
 char Console_CheckForKeyBlocking(void);
 char Console_CheckForKey(void);
 unsigned int Console_PromptForInt(const char *prompt);
+
 void Console_TraverseMenus(ConsoleMenu_t *menu);
 char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections);
 void Console_Print(LoggingLevel_e logging_level, const char *format, ...);
@@ -149,6 +159,11 @@ void Console_PrintMenu(ConsoleMenu_t *menu);
 char Console_GetCharInternal(LoggingLevel_e logging_level);
 void Console_PutCharInternal(LoggingLevel_e logging_level, char c);
 void Console_PutStringInternal(LoggingLevel_e logging_level, char * string);
+
+// Fundamental functions wrapped around the logging level
+char Console_GetCharInternal(loggingLevel_e loggingLevel);
+void Console_PutCharInternal(loggingLevel_e loggingLevel, char c);
+void Console_PutStringInternal(loggingLevel_e loggingLevel, char * string);
 
 
 // Platform-specific functions that must be implemented
