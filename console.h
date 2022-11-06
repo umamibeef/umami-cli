@@ -71,7 +71,7 @@ typedef enum
 #define MAX_MENU_NAME_LENGTH        (40)
 #define MAX_MENU_DESCRIPTION_LENGTH (40)
 #define CONSOLE_WIDTH               (120)
-#define STRING_BUFFER_SIZE          (100)
+#define STRING_BUFFER_SIZE          (CONSOLE_WIDTH + 20)
 #define HEADER_TITLE_EXTRAS_WIDTH   (6) // "=[  ]=" = 6 characters
 #define MAX_HEADER_TITLE_WIDTH      (CONSOLE_WIDTH - HEADER_TITLE_EXTRAS_WIDTH) 
 #define PAGE_LENGTH                 (10) // Maximum length of a page (0-9)
