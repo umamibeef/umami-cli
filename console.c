@@ -31,8 +31,8 @@
 
 static ConsoleSettings_t *console_settings;
 
-static const ConsoleSelection_t splash_options[] = {{'m',"menus"},{'o',"options"}};
-static const ConsoleSelection_t menu_options[] = {{'t',"top"},{'u',"up"},{'n',"next"},{'p',"prev"},{'q',"quit"}};
+static const ConsoleSelection_t splash_options[] = {{'m',"menus"},{'o',"options"},{'q',"quit program"}};
+static const ConsoleSelection_t menu_options[] = {{'t',"top"},{'u',"up"},{'n',"next"},{'p',"prev"},{'q',"quit menus"}};
 
 char string_buffer[STRING_BUFFER_SIZE];
 
@@ -55,7 +55,7 @@ void Console_Main(void)
         {
             Console_Print(LOGGING_LEVEL_0, "%s", (*(console_settings->splash_screen_pointer))[line]);
         }
-        selection = Console_PrintOptionsAndGetResponse(splash_options, SELECTION_SIZE(splash_options), 0);
+        selection = Console_PrintOptionsAndGetResponse(splash_options, SELECTION_SIZE(splash_options), 0, 0);
         
         switch(selection)
         {
@@ -64,6 +64,10 @@ void Console_Main(void)
                 break;
             case 'o':
                 Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_RED" Options not implemented." ANSI_COLOR_RESET);
+                break;
+            case 'q':
+                Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_CYAN" Bye-bye!\n" ANSI_COLOR_RESET);
+                return;
                 break;
             default:
                 Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_RED" Something went wrong..." ANSI_COLOR_RESET);
@@ -76,12 +80,20 @@ void Console_Main(void)
 unsigned int Console_PromptForInt(const char *prompt)
 {
     unsigned int input;
+    unsigned int return_val;
 
     Console_PrintNoEol(LOGGING_LEVEL_0, "%s ", prompt);
-    scanf("%d", &input);
+    return_val = scanf("%d", &input);
     Console_PrintNewLine(LOGGING_LEVEL_0);
 
-    return input;
+    if (return_val == 0)
+    {
+        return 0;
+    }
+    else
+    {
+        return input;
+    }
 }
 
 void Console_PromptForAnyKeyBlocking(void)
@@ -141,7 +153,7 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
         total_pages = TOTAL_PAGES(current_menu->menu_length);
         
         Console_PrintMenu(current_menu);
-        selection = Console_PrintOptionsAndGetResponse(menu_options, SELECTION_SIZE(menu_options), num_selections);
+        selection = Console_PrintOptionsAndGetResponse(menu_options, SELECTION_SIZE(menu_options), num_selections, 0);
 
         // Check the menu mode to see if the menu is mutable or static
         if (current_menu->mode == MENU_MUTABLE)
@@ -156,7 +168,7 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
         }
 
         // First check if it's a menu selection (selection should be valid)
-        if (selection < (num_selections + '0'))
+        if ((unsigned int)selection < (unsigned int)(num_selections + '0'))
         {
             // Error out if we have neither
             if ((current_menu->menu_items[selected_index].function_pointer == NO_FUNCTION_POINTER) &&
@@ -249,7 +261,7 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
     while (stay_put);
 }
 
-char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections)
+char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections, unsigned int option_flags)
 {
     // ToDo: Assert on number of menu selections greater than 10
     char c;
@@ -257,7 +269,10 @@ char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], u
 
     do
     {
-        Console_PrintDivider(LOGGING_LEVEL_0);
+        if (!(option_flags & NO_DIVIDERS))
+        {
+            Console_PrintDivider(LOGGING_LEVEL_0);
+        }
         // Print menu selections (these will override any conflicting passed in selections)
         if (num_menu_selections != 0)
         {
@@ -267,9 +282,20 @@ char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], u
         for (unsigned int i = 0; i < num_selections; i++)
         {
             Console_PrintNoEol(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"]-%s ", selections[i].key, selections[i].description);
+            if ((option_flags & ORIENTATION_V) && !(i == (num_selections - 1)))
+            {
+                Console_PrintNewLine(LOGGING_LEVEL_0);
+            }
         }
         Console_PrintNewLine(LOGGING_LEVEL_0);
-        Console_PrintDivider(LOGGING_LEVEL_0);
+        if (!(option_flags & NO_DIVIDERS))
+        {
+            Console_PrintDivider(LOGGING_LEVEL_0);
+        }
+        else
+        {
+            Console_PrintNewLine(LOGGING_LEVEL_0);
+        }
         Console_PrintNoEol(LOGGING_LEVEL_0, " Selection > ");
         c = Console_CheckForKeyBlocking();
 
@@ -336,7 +362,7 @@ void Console_PrintNewLine(LoggingLevel_e logging_level)
     Console_PutCharInternal(logging_level, '\n');
 }
 
-void Console_PrintHeader(LoggingLevel_e logging_level, char *header_string)
+void Console_PrintHeader(LoggingLevel_e logging_level, const char *header_string)
 {
     unsigned int string_length = strlen(header_string);
 
@@ -453,7 +479,7 @@ void Console_PutCharInternal(LoggingLevel_e logging_level, char c)
     }
 }
 
-void Console_PutStringInternal(LoggingLevel_e logging_level, char * string)
+void Console_PutStringInternal(LoggingLevel_e logging_level, const char * string)
 {
     if (console_settings->logging_level >= logging_level)
     {

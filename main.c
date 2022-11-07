@@ -65,7 +65,7 @@ ConsoleMenuItem_t main_menu_items[] =
     {{"Eleven", "The eleventh menu item"},  &sub_menu_0,    NO_FUNCTION_POINTER},
     {{"Twelve", "The twelfth menu item"},   &sub_menu_0,    NO_FUNCTION_POINTER},
 };
-ConsoleMenu_t main_menu = {{"Main Menu", "This is the main menu."}, main_menu_items, NO_TOP_MENU, MENU_SIZE(main_menu_items)};
+ConsoleMenu_t main_menu = {{"Main Menu", "This is the main menu."}, main_menu_items, NO_TOP_MENU, MENU_SIZE(main_menu_items), MENU_DEFAULT, NO_FUNCTION_POINTER};
 // End of main menu definition
 
 // Start of a sub menu definition
@@ -73,7 +73,7 @@ ConsoleMenuItem_t sub_menu_0_items[] =
 {
     {{"Hello", "Call the hello function!"}, NO_SUB_MENU,    ExampleHelloFunc},  
 };
-ConsoleMenu_t sub_menu_0 = {{"Sub Menu", "Sub menu shared by all."}, sub_menu_0_items, &main_menu, MENU_SIZE(sub_menu_0_items)};
+ConsoleMenu_t sub_menu_0 = {{"Sub Menu", "Sub menu shared by all."}, sub_menu_0_items, &main_menu, MENU_SIZE(sub_menu_0_items), MENU_DEFAULT, NO_FUNCTION_POINTER};
 // End of a sub menu definition
 
 // Define these based on the platform you're working on
@@ -92,7 +92,7 @@ void Console_PutChar(char c)
 {
     putc(c, stdout);
 }
-void Console_PutString(char * string)
+void Console_PutString(const char * string)
 {
     printf("%s", string);
 }

@@ -53,6 +53,12 @@ typedef enum
 
 typedef enum
 {
+    ORIENTATION_V = 1 << 0, // Default is options horizontal
+    NO_DIVIDERS = 1 << 1, // Default is dividers drawn
+} ConsoleOptionFlags_e;
+
+typedef enum
+{
     LOGGING_LEVEL_DISABLED = -1,
     LOGGING_LEVEL_0 = 0, 
     LOGGING_LEVEL_1 = 1, 
@@ -138,23 +144,23 @@ char Console_CheckForKey(void);
 unsigned int Console_PromptForInt(const char *prompt);
 
 void Console_TraverseMenus(ConsoleMenu_t *menu);
-char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections);
+char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections, unsigned int option_flags);
 void Console_Print(LoggingLevel_e logging_level, const char *format, ...);
 void Console_PrintNoEol(LoggingLevel_e logging_level, const char *format, ...);
 void Console_PrintNewLine(LoggingLevel_e logging_level);
-void Console_PrintHeader(LoggingLevel_e logging_level, char *header_string);
+void Console_PrintHeader(LoggingLevel_e logging_level, const char *header_string);
 void Console_PrintDivider(LoggingLevel_e logging_level);
 void Console_PrintMenu(ConsoleMenu_t *menu);
 
 // Fundamental functions wrapped around the logging level
 char Console_GetCharInternal(LoggingLevel_e logging_level);
 void Console_PutCharInternal(LoggingLevel_e logging_level, char c);
-void Console_PutStringInternal(LoggingLevel_e logging_level, char * string);
+void Console_PutStringInternal(LoggingLevel_e logging_level, const char * string);
 
 // Platform-specific functions that must be implemented
 extern char Console_GetChar(void);
 extern void Console_PutChar(char c);
-extern void Console_PutString(char * string);
+extern void Console_PutString(const char * string);
 
 #ifdef __cplusplus
 }
