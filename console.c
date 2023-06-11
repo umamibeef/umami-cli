@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Michel Kakulphimp
+ * Copyright (c) 2023 Michel Kakulphimp
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,100 +26,171 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
-#include "console.h"
+#include "console-menus/console.h"
 
 static ConsoleSettings_t *console_settings;
 
-static const ConsoleSelection_t splash_options[] = {{'m',"menus"},{'o',"options"},{'q',"quit program"}};
-static const ConsoleSelection_t menu_options[] = {{'t',"top"},{'u',"up"},{'n',"next"},{'p',"prev"},{'q',"quit menus"}};
+static const ConsoleSelection_t splash_options[] = {{'m', "menus"}, {'o', "options"}, {'q', "quit program"}};
+static const ConsoleSelection_t menu_options[] = {{'t', "top"}, {'u', "up"}, {'n', "next"}, {'p', "prev"}, {'q', "quit menus"}};
 
-char string_buffer[STRING_BUFFER_SIZE];
+char string_buffers[NUM_STRING_BUFFERS][STRING_BUFFER_SIZE];
+unsigned int current_string_buffer_index = 0;
 
-void Console_Init(ConsoleSettings_t *settings)
+void ConsoleInit(ConsoleSettings_t *settings)
 {
-    memset(string_buffer, 0, STRING_BUFFER_SIZE);
+    memset(string_buffers, 0, sizeof(char) * NUM_STRING_BUFFERS * STRING_BUFFER_SIZE);
+    current_string_buffer_index = 0;
     console_settings = settings;
 }
 
-void Console_Main(void)
+void ConsoleMain(void)
 {
     char selection;
 
     for (;;)
     {
-        Console_PrintNewLine(LOGGING_LEVEL_0);
-        Console_PrintNewLine(LOGGING_LEVEL_0);
-        Console_PrintHeader(LOGGING_LEVEL_0, "Welcome");
+        ConsolePrintNewLine(LOGGING_LEVEL_0);
+        ConsolePrintNewLine(LOGGING_LEVEL_0);
+        ConsolePrintHeader(LOGGING_LEVEL_0, "Welcome");
         for (unsigned int line = 0; line < console_settings->num_splash_lines; line++)
         {
-            Console_Print(LOGGING_LEVEL_0, "%s", (*(console_settings->splash_screen_pointer))[line]);
+            ConsolePrint(LOGGING_LEVEL_0, "%s", (*(console_settings->splash_screen_pointer))[line]);
         }
-        selection = Console_PrintOptionsAndGetResponse(splash_options, SELECTION_SIZE(splash_options), 0, 0);
-        
-        switch(selection)
+        selection = ConsolePrintOptionsAndGetResponse(splash_options, SELECTION_SIZE(splash_options), 0, 0);
+
+        switch (selection)
         {
             case 'm':
-                Console_TraverseMenus(console_settings->main_menu_pointer);
+                ConsoleTraverseMenus(console_settings->main_menu_pointer);
                 break;
             case 'o':
-                Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_RED" Options not implemented." ANSI_COLOR_RESET);
+                ConsolePrint(LOGGING_LEVEL_0, ANSI_COLOR_RED" Options not implemented." ANSI_COLOR_RESET);
                 break;
             case 'q':
-                Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_CYAN" Bye-bye!\n" ANSI_COLOR_RESET);
+                ConsolePrint(LOGGING_LEVEL_0, ANSI_COLOR_CYAN" Bye-bye!\n" ANSI_COLOR_RESET);
                 return;
                 break;
             default:
-                Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_RED" Something went wrong..." ANSI_COLOR_RESET);
+                ConsolePrint(LOGGING_LEVEL_0, ANSI_COLOR_RED" Something went wrong..." ANSI_COLOR_RESET);
                 for (;;);
                 break;
         };
     }
 }
 
-unsigned int Console_PromptForInt(const char *prompt)
+void ConsoleSmallHeaders(bool enable)
 {
+    console_settings->small_headers = enable;
+}
+
+unsigned int ConsolePromptForInt(const char *prompt, unsigned int default_val)
+{
+    char buffer[100];
     unsigned int input;
     unsigned int return_val;
 
-    Console_PrintNoEol(LOGGING_LEVEL_0, "%s ", prompt);
-    return_val = scanf("%d", &input);
-    Console_PrintNewLine(LOGGING_LEVEL_0);
+    ConsolePrintNoEol(LOGGING_LEVEL_0, "%s (default: %d) > ", prompt, default_val);
 
-    if (return_val == 0)
+    if (fgets(buffer, sizeof(buffer), stdin) == NULL)
     {
-        return 0;
+        return default_val;
     }
-    else
+
+    if (sscanf(buffer, "%d", &input) != 1)
     {
-        return input;
+        return default_val;
     }
+
+    return input;
 }
 
-void Console_PromptForAnyKeyBlocking(void)
+uint32_t ConsolePromptForHexUInt32(const char *prompt, uint32_t default_val)
 {
-    Console_Print(LOGGING_LEVEL_0, "Press any key to continue");
-    Console_CheckForKeyBlocking();
+    char buffer[100];
+    uint32_t input;
+    uint32_t return_val;
+
+    ConsolePrintNoEol(LOGGING_LEVEL_0, "%s (default: 0x%x) > ", prompt, default_val);
+
+    if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+    {
+        return default_val;
+    }
+
+    if (sscanf(buffer, "%x", &input) != 1)
+    {
+        return default_val;
+    }
+
+    return input;
 }
 
-char Console_CheckForKeyBlocking(void)
+uint64_t ConsolePromptForHexUInt64(const char *prompt, uint64_t default_val)
+{
+    char buffer[100];
+    uint64_t input;
+    uint64_t return_val;
+
+    ConsolePrintNoEol(LOGGING_LEVEL_0, "%s (default: 0x%x) > ", prompt, default_val);
+
+    if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+    {
+        return default_val;
+    }
+
+    if (sscanf(buffer, "%lx", &input) != 1)
+    {
+        return default_val;
+    }
+
+    return input;
+}
+
+char *ConsolePromptForString(const char *prompt, const char *default_val)
+{
+    char *return_val;
+    unsigned char *char_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+
+    ConsolePrintNoEol(LOGGING_LEVEL_0, "%s (default: %s) > ", prompt, default_val);
+
+    if (fgets(char_buffer, sizeof(STRING_BUFFER_SIZE), stdin) == NULL)
+    {
+        return default_val;
+    }
+
+    if (sscanf(char_buffer, "%s", &string_buffer) != 1)
+    {
+        return default_val;
+    }
+}
+
+void ConsolePromptForAnyKeyBlocking(void)
+{
+    ConsolePrint(LOGGING_LEVEL_0, "Press any key to continue");
+    ConsoleCheckForKeyBlocking();
+}
+
+char ConsoleCheckForKeyBlocking(void)
 {
     char c = 0;
 
     while (c == 0)
     {
-        c = Console_GetCharInternal(LOGGING_LEVEL_0);
+        c = ConsoleGetCharInternal(LOGGING_LEVEL_0);
     }
 
     return c;
 }
 
-char Console_CheckForKey(void)
+char ConsoleCheckForKey(void)
 {
-    return Console_GetCharInternal(LOGGING_LEVEL_0);
+    return ConsoleGetCharInternal(LOGGING_LEVEL_0);
 }
 
-void Console_TraverseMenus(ConsoleMenu_t *menu)
+void ConsoleTraverseMenus(ConsoleMenu_t *menu)
 {
     bool stay_put = true;
     ConsoleMenu_t *current_menu = menu;
@@ -151,21 +222,11 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
 
         // Determine total pages for current menu (do this after a potential menu update)
         total_pages = TOTAL_PAGES(current_menu->menu_length);
-        
-        Console_PrintMenu(current_menu);
-        selection = Console_PrintOptionsAndGetResponse(menu_options, SELECTION_SIZE(menu_options), num_selections, 0);
 
-        // Check the menu mode to see if the menu is mutable or static
-        if (current_menu->mode == MENU_MUTABLE)
-        {
-            // Menu is mutable, so accept the selection as-is (menu items are populated dynamically)
-            selected_index = (selection - '0');
-        }
-        else
-        {
-            // Normal behaviour page 
-            selected_index = ((current_menu->current_page * PAGE_LENGTH) + selection - '0');
-        }
+        ConsolePrintMenu(current_menu);
+        selection = ConsolePrintOptionsAndGetResponse(menu_options, SELECTION_SIZE(menu_options), num_selections, 0);
+
+        selected_index = ((current_menu->current_page * PAGE_LENGTH) + selection - '0');
 
         // First check if it's a menu selection (selection should be valid)
         if ((unsigned int)selection < (unsigned int)(num_selections + '0'))
@@ -174,10 +235,10 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
             if ((current_menu->menu_items[selected_index].function_pointer == NO_FUNCTION_POINTER) &&
                 (current_menu->menu_items[selected_index].sub_menu == NO_SUB_MENU))
             {
-                Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_RED" No submenu or function pointer!!!"ANSI_COLOR_RESET);
+                ConsolePrint(LOGGING_LEVEL_0, ANSI_COLOR_RED" No submenu or function pointer!!!"ANSI_COLOR_RESET);
                 // for (;;);
             }
-            
+
             // Note:    A menu item can have both a submenu as well as a function pointer.
             //          Useful if a function needs to be called prior to entering a new menu.
             // Check if we have a function pointer
@@ -227,7 +288,7 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
                 current_menu->current_page = 0;
                 current_menu = current_menu->top_menu;
             };
-            
+
         }
         // Check if we're going to the previous page
         else if (selection == 'p')
@@ -254,14 +315,15 @@ void Console_TraverseMenus(ConsoleMenu_t *menu)
         }
         else
         {
-            Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_RED" Something went wrong..."ANSI_COLOR_RESET);
+            ConsolePrint(LOGGING_LEVEL_0, ANSI_COLOR_RED" Something went wrong..."ANSI_COLOR_RESET);
             for (;;);
         }
     }
     while (stay_put);
 }
 
-char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections, unsigned int num_menu_selections, unsigned int option_flags)
+char ConsolePrintOptionsAndGetResponse(const ConsoleSelection_t selections[], unsigned int num_selections,
+                                       unsigned int num_menu_selections, unsigned int option_flags)
 {
     // ToDo: Assert on number of menu selections greater than 10
     char c;
@@ -271,33 +333,40 @@ char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], u
     {
         if (!(option_flags & NO_DIVIDERS))
         {
-            Console_PrintDivider(LOGGING_LEVEL_0);
+            ConsolePrintDivider(LOGGING_LEVEL_0);
+        }
+        else
+        {
+            ConsolePrintNewLine(LOGGING_LEVEL_0);
         }
         // Print menu selections (these will override any conflicting passed in selections)
         if (num_menu_selections != 0)
         {
-            Console_PrintNoEol(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"0"ANSI_COLOR_RESET"-"ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"]-item ", ('0' + (num_menu_selections - 1)));
+            ConsolePrintNoEol(LOGGING_LEVEL_0,
+                              " ["ANSI_COLOR_YELLOW"0"ANSI_COLOR_RESET"-"ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"]-item ",
+                              ('0' + (num_menu_selections - 1)));
         }
         // Print passed in selections
         for (unsigned int i = 0; i < num_selections; i++)
         {
-            Console_PrintNoEol(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"]-%s ", selections[i].key, selections[i].description);
+            ConsolePrintNoEol(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"]-%s ", selections[i].key,
+                              selections[i].description);
             if ((option_flags & ORIENTATION_V) && !(i == (num_selections - 1)))
             {
-                Console_PrintNewLine(LOGGING_LEVEL_0);
+                ConsolePrintNewLine(LOGGING_LEVEL_0);
             }
         }
-        Console_PrintNewLine(LOGGING_LEVEL_0);
+        ConsolePrintNewLine(LOGGING_LEVEL_0);
         if (!(option_flags & NO_DIVIDERS))
         {
-            Console_PrintDivider(LOGGING_LEVEL_0);
+            ConsolePrintDivider(LOGGING_LEVEL_0);
         }
         else
         {
-            Console_PrintNewLine(LOGGING_LEVEL_0);
+            ConsolePrintNewLine(LOGGING_LEVEL_0);
         }
-        Console_PrintNoEol(LOGGING_LEVEL_0, " Selection > ");
-        c = Console_CheckForKeyBlocking();
+        ConsolePrintNoEol(LOGGING_LEVEL_0, " Selection > ");
+        c = ConsoleCheckForKeyBlocking();
 
         // If we have menu selections, check for those first
         if (num_menu_selections != 0)
@@ -308,7 +377,7 @@ char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], u
                 valid = true;
             }
         }
-        
+
         // We didn't get a valid value yet
         if (!valid)
         {
@@ -321,48 +390,158 @@ char Console_PrintOptionsAndGetResponse(const ConsoleSelection_t selections[], u
                 }
             }
         }
-        
+
         if (!valid)
         {
-            Console_PrintNewLine(LOGGING_LEVEL_0);
-            Console_Print(LOGGING_LEVEL_0, " Bad selection %c! ", c);
+            ConsolePrintNewLine(LOGGING_LEVEL_0);
+            ConsolePrint(LOGGING_LEVEL_0, "Bad selection %c! ", c);
         }
     }
     while (!valid);
-    
-    Console_Print(LOGGING_LEVEL_0, ANSI_COLOR_GREEN" Selecting %c!"ANSI_COLOR_RESET, c);
-    Console_PrintDivider(LOGGING_LEVEL_0);
-    Console_PrintNewLine(LOGGING_LEVEL_0);
-    
+
+    ConsolePrint(LOGGING_LEVEL_0, ANSI_COLOR_GREEN" Selecting %c!"ANSI_COLOR_RESET, c);
+    if (!(option_flags & NO_DIVIDERS))
+    {
+        ConsolePrintDivider(LOGGING_LEVEL_0);
+    }
+
     return c;
 }
 
-void Console_Print(LoggingLevel_e logging_level, const char *format, ...)
+void ConsolePrint(LoggingLevel_e logging_level, const char *format, ...)
 {
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
     va_list args;
     va_start(args, format);
     vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
     va_end(args);
-    Console_PutStringInternal(logging_level, string_buffer);
-    Console_PrintNewLine(logging_level);
+    ConsolePutStringInternal(logging_level, string_buffer);
+    ConsolePrintNewLine(logging_level);
 }
 
-void Console_PrintNoEol(LoggingLevel_e logging_level, const char *format, ...)
+void ConsolePrintInPlace(LoggingLevel_e logging_level, const char *format, ...)
 {
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
     va_list args;
     va_start(args, format);
     vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
     va_end(args);
-    Console_PutStringInternal(logging_level, string_buffer);
+    ConsolePutStringInternal(logging_level, string_buffer);
+    ConsolePutChar('\r');
+    fflush(stdout);
 }
 
-void Console_PrintNewLine(LoggingLevel_e logging_level)
+void ConsolePrintBlock(LoggingLevel_e logging_level, const char *block_string)
 {
-    Console_PutCharInternal(logging_level, '\r');
-    Console_PutCharInternal(logging_level, '\n');
+    unsigned int total_string_len = strlen(block_string);
+    unsigned int start = 0;
+    unsigned int end = TEXT_BLOCK_SIZE;
+
+    while (start < total_string_len)
+    {
+        /* Step back until we find a space or we're at the null terminator and
+         * we haven't lapped the start */
+        while ((block_string[end] != ' ') && (block_string[end] != 0) && (end > start))
+        {
+            end--;
+        }
+
+        /* No space found, we're going to print this entire line */
+        if (end == start)
+        {
+            end = start + TEXT_BLOCK_SIZE;
+        }
+
+        /* Print from start to end (add a character margin) */
+        ConsolePutChar(' ');
+        for (int i = start; i < end; i++)
+        {
+            ConsolePutChar(block_string[i]);
+        }
+        ConsolePutChar('\n');
+
+        /* New line */
+        start = end + 1;
+        /* Make sure we don't go past the string length */
+        end = ((start + TEXT_BLOCK_SIZE) > total_string_len) ? total_string_len : start + TEXT_BLOCK_SIZE;
+    }
 }
 
-void Console_PrintHeader(LoggingLevel_e logging_level, const char *header_string)
+void ConsolePrintColor(LoggingLevel_e logging_level, const char *color_string, const char *inner_string)
+{
+    ConsolePutStringInternal(logging_level, color_string);
+    ConsolePutStringInternal(logging_level, inner_string);
+    ConsolePutStringInternal(logging_level, ANSI_COLOR_RESET);
+    ConsolePrintNewLine(logging_level);
+
+}
+void ConsolePrintError(LoggingLevel_e logging_level, const char *format, ...)
+{
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
+    va_end(args);
+    ConsolePrintColor(logging_level, ANSI_COLOR_RED, string_buffer);
+}
+
+void ConsolePrintWarn(LoggingLevel_e logging_level, const char *format, ...)
+{
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
+    va_end(args);
+    ConsolePrintColor(logging_level, ANSI_COLOR_YELLOW, string_buffer);
+}
+
+void ConsolePrintSuccess(LoggingLevel_e logging_level, const char *format, ...)
+{
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
+    va_end(args);
+    ConsolePrintColor(logging_level, ANSI_COLOR_GREEN, string_buffer);
+}
+
+void ConsolePrintNoEol(LoggingLevel_e logging_level, const char *format, ...)
+{
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
+    va_end(args);
+    ConsolePutStringInternal(logging_level, string_buffer);
+}
+
+void ConsolePrintNewLine(LoggingLevel_e logging_level)
+{
+    ConsolePutCharInternal(logging_level, '\r');
+    ConsolePutCharInternal(logging_level, '\n');
+}
+
+void ConsolePrintHeader(LoggingLevel_e logging_level, const char *format, ...)
+{
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
+    va_end(args);
+    ConsolePrintHeaderInternal(logging_level, DBL_LINE_CHAR, string_buffer);
+}
+
+void ConsolePrintSubHeader(LoggingLevel_e logging_level, const char *format, ...)
+{
+    unsigned char *string_buffer = string_buffers[ConsoleGetStringBufferIndex()];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(string_buffer, STRING_BUFFER_SIZE, format, args);
+    va_end(args);
+    ConsolePrintHeaderInternal(logging_level, SGL_LINE_CHAR, string_buffer);
+}
+
+void ConsolePrintHeaderInternal(LoggingLevel_e logging_level, const char *ruler_string, const char *header_string)
 {
     unsigned int string_length = strlen(header_string);
 
@@ -370,26 +549,30 @@ void Console_PrintHeader(LoggingLevel_e logging_level, const char *header_string
     {
         string_length = MAX_HEADER_TITLE_WIDTH;
     }
-
-    Console_PrintNoEol(logging_level, DBL_LINE_CHAR"["ANSI_COLOR_YELLOW" %s "ANSI_COLOR_RESET"]"DBL_LINE_CHAR, header_string);
-    // Fill the rest of the line with '='
-    for (unsigned int i = 0; i < (CONSOLE_WIDTH - string_length - HEADER_TITLE_EXTRAS_WIDTH); i++)
+    ConsolePrintNewLine(logging_level);
+    ConsolePrintNoEol(logging_level, "%s["ANSI_COLOR_YELLOW" %s "ANSI_COLOR_RESET"]%s", ruler_string, header_string,
+                      ruler_string);
+    if (!console_settings->small_headers)
     {
-        Console_PutStringInternal(logging_level, DBL_LINE_CHAR);
+        for (unsigned int i = 0; i < (CONSOLE_WIDTH - string_length - HEADER_TITLE_EXTRAS_WIDTH); i++)
+        {
+            ConsolePrintNoEol(logging_level, "%s", ruler_string);
+        }
     }
-    Console_PrintNewLine(logging_level);
+    ConsolePrintNewLine(logging_level);
+    ConsolePrintNewLine(logging_level);
 }
 
-void Console_PrintDivider(LoggingLevel_e logging_level)
+void ConsolePrintDivider(LoggingLevel_e logging_level)
 {
     for (unsigned int i = 0; i < CONSOLE_WIDTH; i++)
     {
-        Console_PutStringInternal(logging_level, SGL_LINE_CHAR);
+        ConsolePrintNoEol(logging_level, "%s", SGL_LINE_CHAR);
     }
-    Console_PrintNewLine(logging_level);
+    ConsolePrintNewLine(logging_level);
 }
 
-void Console_PrintMenu(ConsoleMenu_t *menu)
+void ConsolePrintMenu(ConsoleMenu_t *menu)
 {
     unsigned int total_pages = TOTAL_PAGES(menu->menu_length);
     unsigned int start_index;
@@ -418,52 +601,75 @@ void Console_PrintMenu(ConsoleMenu_t *menu)
         end_index = (menu->menu_length - menu_offset);
     }
 
-    Console_PrintNewLine(LOGGING_LEVEL_0);
-    Console_PrintHeader(LOGGING_LEVEL_0, menu->id.name);
-    Console_PrintNewLine(LOGGING_LEVEL_0);
-    Console_PrintNoEol(LOGGING_LEVEL_0, " %s", menu->id.description);
+    ConsolePrintHeader(LOGGING_LEVEL_0, menu->id.name);
+    ConsolePrintNoEol(LOGGING_LEVEL_0, " %s", menu->id.description);
+
     if (total_pages > 1)
     {
-        Console_Print(LOGGING_LEVEL_0, " - Page (%i/%i)", menu->current_page + 1, total_pages);
+        ConsolePrint(LOGGING_LEVEL_0, " - Page (%i/%i)", menu->current_page + 1, total_pages);
     }
     else
     {
-        Console_PrintNewLine(LOGGING_LEVEL_0);
+        ConsolePrintNewLine(LOGGING_LEVEL_0);
     }
-    Console_PrintNewLine(LOGGING_LEVEL_0);
-    // If we have multiple pages and we aren't on the first page, indicate to
-    // the user that they can go to the previous page
-    if ((total_pages > 1) && (menu->current_page > 0))
+
+    if (menu->menu_length)
     {
-        Console_Print(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"p"ANSI_COLOR_RESET"] <<< Prev Page");
-    }
-    for (unsigned int i = start_index; i < end_index; i++)
-    {
-        ConsoleMenuItem_t *menu_item = &(menu->menu_items[i]);
-        Console_PrintNoEol(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"] %s", '0' + i - list_offset, menu_item->id.name);
-        if (menu_item->id.description[0] != '\0')
+        ConsolePrintNewLine(LOGGING_LEVEL_0); // Space above the menu options
+        // If we have multiple pages and we aren't on the first page, indicate
+        // to the user that they can go to the previous page
+        if ((total_pages > 1) && (menu->current_page > 0))
         {
-            Console_Print(LOGGING_LEVEL_0, " - %s", menu_item->id.description);
+            ConsolePrint(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"p"ANSI_COLOR_RESET"] <<< Prev Page");
         }
-        else
+        for (unsigned int i = start_index; i < end_index; i++)
         {
-            Console_PrintNewLine(LOGGING_LEVEL_0);
+            ConsoleMenuItem_t *menu_item = &(menu->menu_items[i + menu_offset]);
+            ConsolePrintNoEol(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"%c"ANSI_COLOR_RESET"] %s", '0' + i - list_offset,
+                              menu_item->id.name);
+            if (menu_item->id.description[0] != '\0')
+            {
+                ConsolePrint(LOGGING_LEVEL_0, " - %s", menu_item->id.description);
+            }
+            else
+            {
+                ConsolePrintNewLine(LOGGING_LEVEL_0);
+            }
         }
+        // If we have multiple pages and we aren't on the first page, indicate
+        // to the user that they can go to the next page
+        if ((total_pages > 1) && (menu->current_page < (total_pages - 1)))
+        {
+            ConsolePrint(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"n"ANSI_COLOR_RESET"] >>> Next Page");
+        }
+        ConsolePrintNewLine(LOGGING_LEVEL_0); // Space below the menu options
     }
-    // If we have multiple pages and we aren't on the first page, indicate to
-    // the user that they can go to the next page
-    if ((total_pages > 1) && (menu->current_page < (total_pages - 1)))
+    else
     {
-        Console_Print(LOGGING_LEVEL_0, " ["ANSI_COLOR_YELLOW"n"ANSI_COLOR_RESET"] >>> Next Page");
+        ConsolePrintNewLine(LOGGING_LEVEL_0);
+        ConsolePrintWarn(LOGGING_LEVEL_0, " <empty like your cup of coffee>");
+        ConsolePrintNewLine(LOGGING_LEVEL_0);
     }
-    Console_PrintNewLine(LOGGING_LEVEL_0);
+
 }
 
-char Console_GetCharInternal(LoggingLevel_e logging_level)
+unsigned int ConsoleGetStringBufferIndex()
+{
+    unsigned int returned_string_buffer_index = current_string_buffer_index;
+
+    if (++current_string_buffer_index >= NUM_STRING_BUFFERS)
+    {
+        current_string_buffer_index = 0;
+    };
+
+    return returned_string_buffer_index;
+}
+
+char ConsoleGetCharInternal(LoggingLevel_e logging_level)
 {
     if (console_settings->logging_level >= logging_level)
     {
-        return Console_GetChar();
+        return ConsoleGetChar();
     }
     else
     {
@@ -471,18 +677,18 @@ char Console_GetCharInternal(LoggingLevel_e logging_level)
     }
 }
 
-void Console_PutCharInternal(LoggingLevel_e logging_level, char c)
+void ConsolePutCharInternal(LoggingLevel_e logging_level, char c)
 {
     if (console_settings->logging_level >= logging_level)
     {
-        Console_PutChar(c);
+        ConsolePutChar(c);
     }
 }
 
-void Console_PutStringInternal(LoggingLevel_e logging_level, const char * string)
+void ConsolePutStringInternal(LoggingLevel_e logging_level, const char *string)
 {
     if (console_settings->logging_level >= logging_level)
     {
-        Console_PutString(string);
+        ConsolePutString(string);
     }
 }
