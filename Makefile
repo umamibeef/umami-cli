@@ -1,6 +1,6 @@
 CC=gcc
-TARGET=console-menus
-SOURCES=main.c console.c
+TARGET=umami-cli-demo
+SOURCES=main.c console.c args.c
 CFLAGS=-O3
 LFLAGS=-lm
 
